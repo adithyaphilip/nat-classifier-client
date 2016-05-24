@@ -41,6 +41,10 @@ public class ClassifierApplet extends Applet {
     }
 
     @Override
+    public void init() {
+    }
+
+    @Override
     public void paint(Graphics g) {
         Result result = main();
         g.drawString("Allocation Type: " + result.allocType, 10, 20);
@@ -49,7 +53,7 @@ public class ClassifierApplet extends Applet {
     }
 
     public static Result main() {
-        ArrayList<Result> results = new ArrayList<>();
+        final ArrayList<Result> results = new ArrayList<>();
         ArrayList<Thread> threads = new ArrayList<>();
         for (int i = 0; i < NUM_PARALLEL; i++) {
             Thread th = new Thread(new Runnable() {
@@ -111,7 +115,7 @@ public class ClassifierApplet extends Applet {
     }
 
     public static Result determine() {
-        Result result = new Result();
+        final Result result = new Result();
         Thread th1 = new Thread(new Runnable() {
             @Override
             public void run() {
