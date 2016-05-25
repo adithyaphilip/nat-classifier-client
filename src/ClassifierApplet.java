@@ -8,11 +8,11 @@ import java.util.HashMap;
 
 public class ClassifierApplet extends Applet {
 
-    private final static int NUM_PARALLEL = 3; // number of simultaneous filtering/allocation discovery pairs to make
+    private final static int NUM_PARALLEL = 2; // number of simultaneous filtering/allocation discovery pairs to make
 
     private final static int UDP_RECV_BUF_SIZE = 2048;
-    private final static int UDP_RECV_TIMEOUT = 5 * 1000;
-    private final static int UDP_RECV_MAX_TIMEOUT = 10 * 1000;
+    private final static int UDP_RECV_TIMEOUT = 10 * 1000;
+    private final static int UDP_RECV_MAX_TIMEOUT = 20 * 1000;
     private final static int UDP_MAX_RETRY = 3;
 
     private final static String PRIMARY_IP = "52.27.15.59";
@@ -23,6 +23,12 @@ public class ClassifierApplet extends Applet {
 
     private final static SocketAddress PRIMARY_PORT2_ADDR = new InetSocketAddress(IP_LIST[1], PORT_ALLOC[1]);
     private final static SocketAddress SECONDARY_PORT1_ADDR = new InetSocketAddress(IP_LIST[2], PORT_ALLOC[2]);
+
+    private Result result;
+
+    private boolean started = false;
+
+    private static ArrayList<DatagramSocket> openedSockets = new ArrayList();
 
     // IMP: enum values should be in decreasing order of strictness
     enum FilterType {
@@ -46,10 +52,24 @@ public class ClassifierApplet extends Applet {
 
     @Override
     public void paint(Graphics g) {
-        Result result = main();
-        g.drawString("Allocation Type: " + result.allocType, 10, 20);
-        g.drawString("Allocation Progression: " + result.progression, 10, 40);
-        g.drawString("Filter Type: " + result.allocType, 10, 60);
+        if (result!= null) {
+            g.drawString("Alloc: " + result.allocType, 10, 20);
+            g.drawString("Progression: " + result.progression, 10, 40);
+            g.drawString("Filter: " + result.filterType, 10, 60);
+            return;
+        }
+        if (started) {
+            return;
+        }
+        started = true;
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                result = main();
+                ClassifierApplet.this.repaint();
+            }
+        });
+        thread.start();
     }
 
     public static Result main() {
@@ -76,7 +96,16 @@ public class ClassifierApplet extends Applet {
             }
         }
 
+        closeOpenedSockets();
+
         return mergeResults(results);
+    }
+
+    private static void closeOpenedSockets() {
+        for(DatagramSocket socket: openedSockets) {
+            socket.close();
+        }
+        openedSockets = new ArrayList();
     }
 
     private static Result mergeResults(ArrayList<Result> results) {
@@ -153,15 +182,15 @@ public class ClassifierApplet extends Applet {
      * @throws IOException
      */
     public static void addAllocDetails(Result result) throws IOException {
-        int fromPort = 10000 + Math.round((float) Math.random() * 55000);
-        System.out.println("Searching for alloc details with port " + fromPort);
+        DatagramSocket datagramSocket = getRandomDatagramSocket();
+        System.out.println("Searching for alloc details with port " + datagramSocket.getPort());
         ArrayList<Integer> responses = new ArrayList<>();
         for (int i = 0; i < IP_LIST.length; i++) {
             // since we have only one UDP response to wait for, UDP_RECV_TIMEOUT is sufficient
-            HashMap<SocketAddress, Integer> tempResponses = sendUdp(IP_LIST[i], PORT_ALLOC[i], fromPort,
+            HashMap<SocketAddress, Integer> tempResponses = sendUdp(IP_LIST[i], PORT_ALLOC[i], datagramSocket,
                     UDP_RECV_TIMEOUT, 1);
             responses.addAll(tempResponses.values());
-            System.out.println("Responses for port " + fromPort + ": " + tempResponses.values());
+            System.out.println("Responses for port " +datagramSocket.getPort() + ": " + tempResponses.values());
         }
 
         if (responses.size() < IP_LIST.length) {
@@ -190,17 +219,29 @@ public class ClassifierApplet extends Applet {
         }
     }
 
+    private static DatagramSocket getRandomDatagramSocket() throws SocketException {
+        int fromPort = 10000 + Math.round((float) Math.random() * 55000);
+        DatagramSocket datagramSocket = new DatagramSocket(null);
+        datagramSocket.setReuseAddress(true);
+        datagramSocket.bind(new InetSocketAddress(fromPort));
+        openedSockets.add(datagramSocket);
+        return datagramSocket;
+    }
+
     /**
      * ASSUMPTIONS: Filtered by port implies filtered by address also
      *
      * @throws IOException
      */
     public static void addFilterDetails(Result result) throws IOException {
-        int fromPort = 10000 + Math.round((float) Math.random() * 55000);
-        HashMap<SocketAddress, Integer> responses = sendUdp(IP_LIST[0], PORT_FILTER[0], fromPort, UDP_RECV_MAX_TIMEOUT,
+        DatagramSocket datagramSocket = getRandomDatagramSocket();
+        HashMap<SocketAddress, Integer> responses = sendUdp(
+                IP_LIST[0], PORT_FILTER[0],
+                datagramSocket,
+                UDP_RECV_MAX_TIMEOUT,
                 3);
         if (responses.size() == 0) {
-            System.out.println("Connection failed for port " + fromPort);
+            System.out.println("Connection failed for port " + datagramSocket.getPort());
         }
         synchronized (result) {
             if (responses.containsKey(SECONDARY_PORT1_ADDR)) {
@@ -211,15 +252,15 @@ public class ClassifierApplet extends Applet {
                 result.filterType = FilterType.PORT;
             }
         }
+        datagramSocket.close();
     }
 
-    public static HashMap<SocketAddress, Integer> sendUdp(String toIp, int toPort, int fromPort, int maxResponseTime,
+    public static HashMap<SocketAddress, Integer> sendUdp(String toIp, int toPort,
+                                                          DatagramSocket socket,
+                                                          int maxResponseTime,
                                                           int maxResponses)
             throws IOException {
         InetSocketAddress toAddr = new InetSocketAddress(toIp, toPort);
-        DatagramSocket socket = new DatagramSocket(null);
-        socket.setReuseAddress(true);
-        socket.bind(new InetSocketAddress(fromPort));
         HashMap<SocketAddress, Integer> responses = new HashMap<>();
         for (int i = 0; i < UDP_MAX_RETRY; i++) {
             byte[] sendBuf = new byte[0];
@@ -245,10 +286,8 @@ public class ClassifierApplet extends Applet {
         HashMap<SocketAddress, Integer> responseSet = new HashMap<>();
 
         try {
-            int responseCtr = 0;
-            while (responseCtr < maxResponses) {
+            while (responseSet.keySet().size() < maxResponses) {
                 socket.receive(packet);
-                responseCtr++;
                 try {
                     responseSet.put(
                             packet.getSocketAddress(),
