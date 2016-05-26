@@ -73,8 +73,8 @@ public class ClassifierApplet extends Applet {
     }
 
     public static Result main() {
-        final ArrayList<Result> results = new ArrayList<>();
-        ArrayList<Thread> threads = new ArrayList<>();
+        final ArrayList<Result> results = new ArrayList();
+        ArrayList<Thread> threads = new ArrayList();
         for (int i = 0; i < NUM_PARALLEL; i++) {
             Thread th = new Thread(new Runnable() {
                 @Override
@@ -184,7 +184,7 @@ public class ClassifierApplet extends Applet {
     public static void addAllocDetails(Result result) throws IOException {
         DatagramSocket datagramSocket = getRandomDatagramSocket();
         System.out.println("Searching for alloc details with port " + datagramSocket.getPort());
-        ArrayList<Integer> responses = new ArrayList<>();
+        ArrayList<Integer> responses = new ArrayList();
         for (int i = 0; i < IP_LIST.length; i++) {
             // since we have only one UDP response to wait for, UDP_RECV_TIMEOUT is sufficient
             HashMap<SocketAddress, Integer> tempResponses = sendUdp(IP_LIST[i], PORT_ALLOC[i], datagramSocket,
@@ -261,7 +261,7 @@ public class ClassifierApplet extends Applet {
                                                           int maxResponses)
             throws IOException {
         InetSocketAddress toAddr = new InetSocketAddress(toIp, toPort);
-        HashMap<SocketAddress, Integer> responses = new HashMap<>();
+        HashMap<SocketAddress, Integer> responses = new HashMap();
         for (int i = 0; i < UDP_MAX_RETRY; i++) {
             byte[] sendBuf = new byte[0];
             DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length);
@@ -283,7 +283,7 @@ public class ClassifierApplet extends Applet {
 
         long endTime = System.currentTimeMillis() + maxResponseTime;
 
-        HashMap<SocketAddress, Integer> responseSet = new HashMap<>();
+        HashMap<SocketAddress, Integer> responseSet = new HashMap();
 
         try {
             while (responseSet.keySet().size() < maxResponses) {
