@@ -44,6 +44,17 @@ public class ClassifierApplet extends Applet {
         FilterType filterType;
         AllocType allocType;
         int progression = Integer.MAX_VALUE; // if allocType = PORT | ADDRESS
+
+        @Override
+        public String toString() {
+            return "Allocation: " + allocType + " Progression: " + progression + " Filter: " + filterType;
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println("Starting");
+        Result result = main();
+        System.out.println(result);
     }
 
     @Override
@@ -183,14 +194,14 @@ public class ClassifierApplet extends Applet {
      */
     public static void addAllocDetails(Result result) throws IOException {
         DatagramSocket datagramSocket = getRandomDatagramSocket();
-        System.out.println("Searching for alloc details with port " + datagramSocket.getPort());
+        System.out.println("Searching for alloc details with port " + datagramSocket.getLocalPort());
         ArrayList<Integer> responses = new ArrayList();
         for (int i = 0; i < IP_LIST.length; i++) {
             // since we have only one UDP response to wait for, UDP_RECV_TIMEOUT is sufficient
             HashMap<SocketAddress, Integer> tempResponses = sendUdp(IP_LIST[i], PORT_ALLOC[i], datagramSocket,
                     UDP_RECV_TIMEOUT, 1);
             responses.addAll(tempResponses.values());
-            System.out.println("Responses for port " +datagramSocket.getPort() + ": " + tempResponses.values());
+            System.out.println("Responses for port " +datagramSocket.getLocalPort() + ": " + tempResponses.values());
         }
 
         if (responses.size() < IP_LIST.length) {
