@@ -1,12 +1,14 @@
-import java.applet.Applet;
-import java.awt.*;
+
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Scanner;
 
-public class ClassifierApplet extends Applet {
+public class ClassifierApplet {
 
     private final static int NUM_PARALLEL = 2; // number of simultaneous filtering/allocation discovery pairs to make
 
@@ -15,8 +17,8 @@ public class ClassifierApplet extends Applet {
     private final static int UDP_RECV_MAX_TIMEOUT = 20 * 1000;
     private final static int UDP_MAX_RETRY = 3;
 
-    private final static String PRIMARY_IP = "52.27.15.59";
-    private final static String SECONDARY_IP = "52.26.32.86";
+    private static String PRIMARY_IP = "52.27.15.59";
+    private static String SECONDARY_IP = "52.26.32.86";
     private final static String[] IP_LIST = {PRIMARY_IP, PRIMARY_IP, SECONDARY_IP};
     private final static int[] PORT_ALLOC = {2000, 2001, 2002};
     private final static int[] PORT_FILTER = {3000, 3001, 3002};
@@ -52,18 +54,34 @@ public class ClassifierApplet extends Applet {
     }
 
     public static void main(String[] args) {
+        if (args.length != 0) {
+            System.out.println("Reading config from " + args[0]);
+            readConfig(args[0]);
+        }
         System.out.println("Starting");
         Result result = main();
         System.out.println(result);
     }
 
-    @Override
+    private static void readConfig(String file) {
+        try {
+            Scanner sc = new Scanner(new File(file));
+            PRIMARY_IP = sc.nextLine();
+            SECONDARY_IP = sc.nextLine();
+            sc.close();
+        } catch (FileNotFoundException e) {
+            // do nothing, just log
+            System.err.println("Config file not found, using default values");
+        }
+    }
+
+/*    @Override
     public void init() {
     }
 
     @Override
     public void paint(Graphics g) {
-        if (result!= null) {
+        if (result != null) {
             g.drawString("Alloc: " + result.allocType, 10, 20);
             g.drawString("Progression: " + result.progression, 10, 40);
             g.drawString("Filter: " + result.filterType, 10, 60);
@@ -81,7 +99,7 @@ public class ClassifierApplet extends Applet {
             }
         });
         thread.start();
-    }
+    }*/
 
     public static Result main() {
         final ArrayList<Result> results = new ArrayList();
@@ -113,7 +131,7 @@ public class ClassifierApplet extends Applet {
     }
 
     private static void closeOpenedSockets() {
-        for(DatagramSocket socket: openedSockets) {
+        for (DatagramSocket socket : openedSockets) {
             socket.close();
         }
         openedSockets = new ArrayList();
@@ -201,7 +219,7 @@ public class ClassifierApplet extends Applet {
             HashMap<SocketAddress, Integer> tempResponses = sendUdp(IP_LIST[i], PORT_ALLOC[i], datagramSocket,
                     UDP_RECV_TIMEOUT, 1);
             responses.addAll(tempResponses.values());
-            System.out.println("Responses for port " +datagramSocket.getLocalPort() + ": " + tempResponses.values());
+            System.out.println("Responses for port " + datagramSocket.getLocalPort() + ": " + tempResponses.values());
         }
 
         if (responses.size() < IP_LIST.length) {
