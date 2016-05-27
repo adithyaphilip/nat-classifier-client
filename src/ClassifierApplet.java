@@ -19,12 +19,12 @@ public class ClassifierApplet {
 
     private static String PRIMARY_IP = "52.27.15.59";
     private static String SECONDARY_IP = "52.26.32.86";
-    private final static String[] IP_LIST = {PRIMARY_IP, PRIMARY_IP, SECONDARY_IP};
+    private static String[] IP_LIST;
     private final static int[] PORT_ALLOC = {2000, 2001, 2002};
     private final static int[] PORT_FILTER = {3000, 3001, 3002};
 
-    private final static SocketAddress PRIMARY_PORT2_ADDR = new InetSocketAddress(IP_LIST[1], PORT_ALLOC[1]);
-    private final static SocketAddress SECONDARY_PORT1_ADDR = new InetSocketAddress(IP_LIST[2], PORT_ALLOC[2]);
+    private static SocketAddress PRIMARY_PORT2_ADDR;
+    private static SocketAddress SECONDARY_PORT1_ADDR;
 
     private Result result;
 
@@ -58,6 +58,9 @@ public class ClassifierApplet {
             System.out.println("Reading config from " + args[0]);
             readConfig(args[0]);
         }
+        IP_LIST = new String[]{PRIMARY_IP, PRIMARY_IP, SECONDARY_IP};
+        PRIMARY_PORT2_ADDR = new InetSocketAddress(IP_LIST[1], PORT_ALLOC[1]);
+        SECONDARY_PORT1_ADDR = new InetSocketAddress(IP_LIST[2], PORT_ALLOC[2]);
         System.out.println("Starting");
         Result result = main();
         System.out.println(result);
@@ -134,7 +137,6 @@ public class ClassifierApplet {
         for (DatagramSocket socket : openedSockets) {
             socket.close();
         }
-        openedSockets = new ArrayList();
     }
 
     private static Result mergeResults(ArrayList<Result> results) {
@@ -270,7 +272,7 @@ public class ClassifierApplet {
                 UDP_RECV_MAX_TIMEOUT,
                 3);
         if (responses.size() == 0) {
-            System.out.println("Connection failed for port " + datagramSocket.getPort());
+            System.out.println("Connection failed for port " + datagramSocket.getLocalPort());
         }
         synchronized (result) {
             if (responses.containsKey(SECONDARY_PORT1_ADDR)) {
